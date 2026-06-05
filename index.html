@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบตรวจสอบคะแนนประพฤตินักเรียนขั้นสูง</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Sarabun:wght@300;500;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #020813;
+            color: #00d2ff;
+            font-family: 'Sarabun', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            perspective: 1000px;
+        }
+
+        /* Hacker Matrix Background (10101010) */
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            opacity: 0.18;
+            pointer-events: none; /* แก้ไข: ทำให้เมาส์ทะลุผ่าน ไม่บล็อกการคลิก */
+        }
+
+        /* UI Grid Overlay */
+        .cyber-grid {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(rgba(2, 8, 19, 0) 50%, rgba(0, 0, 0, 0.4) 50%), linear-gradient(90deg, rgba(0, 210, 255, 0.03), rgba(0, 0, 0, 0), rgba(0, 210, 255, 0.03));
+            background-size: 100% 4px, 6px 100%;
+            z-index: 2;
+            pointer-events: none; /* แก้ไข: ทำให้เมาส์ทะลุผ่าน ไม่บล็อกการคลิก */
+        }
+
+        /* Main Wrapper - Centered perfectly, No borders/backgrounds */
+        .container {
+            position: relative;
+            z-index: 10; /* ดันขึ้นมาเหนือกราฟิกพื้นหลัง */
+            text-align: center;
+            max-width: 600px;
+            width: 90%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.6s cubic-bezier(0.165, 0.84, 0.44, 1);
+        }
+
+        /* Student Profile Header */
+        .user-profile {
+            margin-bottom: 20px;
+            pointer-events: none;
+        }
+
+        .user-title {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            color: #88e8ff;
+            margin-bottom: 5px;
+            opacity: 0.8;
+        }
+
+        .user-name {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #ffffff;
+            text-shadow: 0 0 15px rgba(0, 210, 255, 0.6);
+        }
+
+        /* Interactive Score Area */
+        .score-box {
+            position: relative;
+            cursor: pointer;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 20; /* มั่นใจว่าอยู่บนสุดเพื่อกดคลิกได้ */
+            user-select: none;
+        }
+
+        .score-title {
+            font-size: 1.2rem;
+            color: #88e8ff;
+            letter-spacing: 3px;
+            margin-bottom: 35px;
+            text-shadow: 0 0 10px rgba(0, 210, 255, 0.4);
+            transition: all 0.4s ease;
+        }
+
+        /* Rotating Tech Rings Wrapper */
+        .circle-wrapper {
+            position: relative;
+            width: 280px;
+            height: 280px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Outer Rotating Ring */
+        .tech-ring-outer {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 3px dashed #00d2ff;
+            border-radius: 50%;
+            animation: rotateClockwise 12s linear infinite;
+            box-shadow: 0 0 20px rgba(0, 210, 255, 0.25);
+        }
+
+        /* Inner Rotating Ring */
+        .tech-ring-inner {
+            position: absolute;
+            width: 84%;
+            height: 84%;
+            border: 2px double rgba(0, 210, 255, 0.5);
+            border-top-color: transparent;
+            border-bottom-color: transparent;
+            border-radius: 50%;
+            animation: rotateCounterClockwise 6s linear infinite;
+        }
+
+        /* Core Score Text */
+        .score-number {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 6.5rem;
+            font-weight: 900;
+            color: #00d2ff;
+            text-shadow: 0 0 25px rgba(0, 210, 255, 0.85), 0 0 50px rgba(0, 210, 255, 0.45);
+            transition: all 0.6s cubic-bezier(0.19, 1, 0.22, 1);
+            z-index: 5;
+        }
+
+        /* Rank / Perfect Text Overlay */
+        .rank-status {
+            position: absolute;
+            font-family: 'Orbitron', sans-serif;
+            opacity: 0;
+            transform: scale(0.4) rotate(-10deg);
+            transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none;
+            width: 100%;
+            z-index: 6;
+        }
+
+        .perfect-text {
+            font-size: 2.6rem;
+            font-weight: 900;
+            color: #ffffff;
+            text-shadow: 0 0 15px #00d2ff, 0 0 30px #00d2ff;
+            letter-spacing: 5px;
+            display: block;
+        }
+
+        .rank-s {
+            font-size: 4.8rem;
+            font-weight: 900;
+            color: #ff0077;
+            text-shadow: 0 0 20px #ff0077, 0 0 45px #ff0077;
+            display: block;
+            margin-top: -5px;
+            animation: hyperPulse 1s infinite alternate;
+        }
+
+        /* --- STATE: ACTIVATED (CLICKED) --- */
+        .container.activated .tech-ring-outer {
+            border-color: #ff0077;
+            animation-duration: 4s; 
+            box-shadow: 0 0 30px rgba(255, 0, 119, 0.5);
+        }
+
+        .container.activated .tech-ring-inner {
+            border-color: rgba(255, 0, 119, 0.6);
+            border-top-color: transparent;
+            border-bottom-color: transparent;
+            animation-duration: 2s;
+        }
+
+        .container.activated .score-number {
+            font-size: 1.8rem;
+            opacity: 0.25;
+            transform: translateY(-95px);
+            color: #ff0077;
+            text-shadow: 0 0 10px #ff0077;
+        }
+
+        .container.activated .rank-status {
+            opacity: 1;
+            transform: scale(1) rotate(0deg);
+        }
+
+        .container.activated .score-title {
+            color: #ff0077;
+            text-shadow: 0 0 12px rgba(255, 0, 119, 0.6);
+        }
+
+        /* Keyframe Animations */
+        @keyframes rotateClockwise {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes rotateCounterClockwise {
+            from { transform: rotate(360deg); }
+            to { transform: rotate(0deg); }
+        }
+
+        @keyframes hyperPulse {
+            0% { transform: scale(0.92); filter: drop-shadow(0 0 5px #ff0077); }
+            100% { transform: scale(1.08); filter: drop-shadow(0 0 20px #ff0077); }
+        }
+
+        .system-status {
+            margin-top: 35px;
+            font-size: 0.75rem;
+            font-family: 'Orbitron', sans-serif;
+            color: rgba(0, 210, 255, 0.4);
+            letter-spacing: 1.5px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="cyber-grid"></div>
+    <canvas id="hackerBg"></canvas>
+
+    <div class="container" id="mainContainer">
+        <div class="user-profile">
+            <div class="user-title">// ข้อมูลนักเรียนชั้นสูง</div>
+            <div class="user-name">พงศ์ชิษนุ ไชยวัฒน์ณิช</div>
+        </div>
+
+        <div class="score-box" onclick="togglePerfectMode()">
+            <div class="score-title" id="statusTitle">ระบบคะแนนประพฤติ</div>
+            
+            <div class="circle-wrapper">
+                <div class="tech-ring-outer"></div>
+                <div class="tech-ring-inner"></div>
+
+                <div class="score-number" id="scoreText">100</div>
+                
+                <div class="rank-status">
+                    <span class="perfect-text">PERFECT</span>
+                    <span class="rank-s">RANK S</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="system-status">STUDENT_ID // SECURE_CORE_CONNECTED</div>
+    </div>
+
+    <script>
+        // Matrix / Hacker Background Effect (10101010)
+        const canvas = document.getElementById('hackerBg');
+        const ctx = canvas.getContext('2d');
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // เปลี่ยนเป็นเฉพาะเลข 1 และ 0 วิ่งสลับกัน
+        const binaryChars = ['1', '0'];
+        const fontSize = 14;
+        const columns = canvas.width / fontSize;
+        const rainDrops = Array(Math.floor(columns)).fill(1);
+
+        const drawMatrix = () => {
+            ctx.fillStyle = 'rgba(2, 8, 19, 0.06)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#00d2ff'; 
+            ctx.font = fontSize + 'px monospace';
+
+            for (let i = 0; i < rainDrops.length; i++) {
+                const text = binaryChars[Math.floor(Math.random() * binaryChars.length)];
+                ctx.fillText(text, i * fontSize, rainDrops[i] * fontSize);
+
+                if (rainDrops[i] * fontSize > canvas.height && Math.random() > 0.98) {
+                    rainDrops[i] = 0;
+                }
+                rainDrops[i]++;
+            }
+        };
+
+        setInterval(drawMatrix, 33);
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        // Click Interactive Logic (กดซ้ำเพื่อสลับเอฟเฟกต์เข้า-ออกได้)
+        let isActivated = false;
+
+        function togglePerfectMode() {
+            const container = document.getElementById('mainContainer');
+            const statusTitle = document.getElementById('statusTitle');
+            
+            if (!isActivated) {
+                container.classList.add('activated');
+                statusTitle.innerText = "ระดับความประพฤติดีเยี่ยม";
+                isActivated = true;
+            } else {
+                container.classList.remove('activated');
+                statusTitle.innerText = "ระบบคะแนนประพฤติ";
+                isActivated = false;
+            }
+        }
+    </script>
+</body>
+</html>
